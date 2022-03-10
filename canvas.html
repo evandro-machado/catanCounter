@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        .button {
+            background-color: #04AA6D;
+            border: 2px solid gray;
+            color: black;
+            padding: 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 12px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .rectangle {
+            width: 200px;
+            height: 30px;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <span>
+            <canvas id="canvas" width="600" height="600" onclick="changeTileInfo(this, event)"></canvas>
+        </span>
+    </div>
+    <div>
+        <table>
+            <tr>
+                <td>
+                    <div>
+                        Player 1
+                        <i class="fa-solid fa-house-chimney" onclick="selectCity(this)"
+                            style="font-size: 2em; color:#25aa04"></i>
+                        <i class="fa-solid fa-building" onclick="selectBuilding(this)"
+                            style="font-size: 2em; color:#25aa04"></i>
+                    </div>
+                    <div>
+                        Player 2
+                        <i class="fa-solid fa-house-chimney" onclick="selectCity(this)"
+                            style="font-size: 2em; color:#2614ce"></i>
+                        <i class="fa-solid fa-building" onclick="selectBuilding(this)"
+                            style="font-size: 2em; color:#2614ce"></i>
+                    </div>
+                    <div>
+                        Player 3
+                        <i class="fa-solid fa-house-chimney" onclick="selectCity(this)"
+                            style="font-size: 2em; color:#f08e0f"></i>
+                        <i class="fa-solid fa-building" onclick="selectBuilding(this)"
+                            style="font-size: 2em; color:#f08e0f"></i>
+                    </div>
+                    <div>
+                        Player 4
+                        <i class="fa-solid fa-house-chimney" onclick="selectCity(this)"
+                            style="font-size: 2em; color:#b61292;"></i>
+                        <i class="fa-solid fa-building" onclick="selectBuilding(this)"
+                            style="font-size: 2em; color:#b61292"></i>
+                    </div>
+                    <div>
+                        Player 5
+                        <i class="fa-solid fa-house-chimney" onclick="selectCity(this)"
+                            style="font-size: 2em; color:#a0a0a0;"></i>
+                        <i class="fa-solid fa-building" onclick="selectBuilding(this)"
+                            style="font-size: 2em; color:#a0a0a0"></i>
+                    </div>
+                    <div>
+                        Player 6
+                        <i class="fa-solid fa-house-chimney" onclick="selectCity(this)"
+                            style="font-size: 2em; color:#793000;"></i>
+                        <i class="fa-solid fa-building" onclick="selectBuilding(this)"
+                            style="font-size: 2em; color:#793000"></i>
+                    </div>
+
+                </td>
+                <td>
+                    <input type="radio" name="selectionType" id="fieldRadio" value="field" checked>
+                    <label for="field">Field</label>
+                    <input type="radio" name="selectionType" id="numberRadio" value="number">
+                    <label for="number">Number</label>
+                    <input type="radio" name="selectionType" id="cityRadio" value="city">
+                    <label for="city">Player</label>
+                </td>
+                <td>
+                    <input type="number" id="diceRoll" min="2" max="12"><button onclick="countCards()">GO!</button>
+                    <div id="result"></div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div>
+        <button class="button" onclick="selectMaterial(this, 'lumber')"
+            style="background-color: #8DBF39">Forest</button>
+        <button class="button" onclick="selectMaterial(this, 'sheep')"
+            style="background-color: #96c783">Pasture</button>
+        <button class="button" onclick="selectMaterial(this, 'rock')"
+            style="background-color: #AAAAAA">Mountain</button>
+        <button class="button" onclick="selectMaterial(this, 'empty')" style="background-color: #F4DFBA">Desert</button>
+        <button class="button" onclick="selectMaterial(this, 'wheat')" style="background-color: #EEC373">Fields</button>
+        <button class="button" onclick="selectMaterial(this, 'brick')" style="background-color: #CC7351">Hills</button>
+    </div>
+    <div id="modal" class="modal">
+        <input type="number" min="2" max="12" id="tileNumber" style="width:35px"><button
+            onclick="addTileNumber()">Ok</button>
+    </div>
+</body>
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const angle = 2 * Math.PI / 6; // 2 PI  rad = 360 degrees, 6 -> hexagon
+    const radius = 50;
+    const originToSide = radius * Math.sin(angle);
+    const minTileInRow = 3;
+    const maxTileInRow = 6;
+    const totalRowNumber = (maxTileInRow - minTileInRow) * 2 + 1
+
+    const tiles = new Array();
+    const fieldTypes = new Array();
+    const vertexRadiusArray = new Array();
+
+    let currentFieldColor = 'gray';
+    let currentMaterialType = '';
+    let currentStructureColor = 'yellow';
+
+    let lastXClick = 0;
+    let lastYClick = 0;
+
+    let currentStructureType = "cities";
+
+    function showNumberModal(x, y) {
+        lastXClick = x;
+        lastYClick = y;
+
+        const modal = document.getElementById("modal");
+        modal.style.display = "block";
+        modal.style.left = x + "px";
+        modal.style.top = y + "px";
+    }
+
+    function addTileNumber() {
+        const tileNumber = document.getElementById("tileNumber");
+
+        if (tileNumber.value < 2 || tileNumber.value > 12) {
+            alert('Invalid number');
+            return;
+        }
+
+        const tile = tiles.find(tile => ctx.isPointInPath(tile.shape, lastXClick, lastYClick));
+        if (tile) {
+            tile.number = tileNumber.value;
+            redraw();
+        }
+
+        modal.style.display = "none";
+    }
+
+    function init() {
+        drawMap();
+        drawInvisibleRadius();
+    }
+
+
+    init();
+
+    function drawInvisibleRadius() {
+        tiles.forEach(tile => tile.coordinates.forEach(coord => {
+            const path = new Path2D();
+            path.arc(coord.x, coord.y, 10, 0, 2 * Math.PI);
+            let circle = {
+                shape: path,
+                coordinates: {
+                    x: coord.x,
+                    y: coord.y
+                }
+            };
+            vertexRadiusArray.push(circle);
+        }));
+    }
+
+    function drawMap() {
+        let tilesToDraw = minTileInRow;
+        let xPositionFactor = maxTileInRow - minTileInRow;
+
+        for (let i = 0; i < totalRowNumber; i++) {
+            for (let j = 0; j < tilesToDraw; j++) {
+                let x = xPositionFactor * radius * Math.sin(angle) + (j * 2 * (radius * Math.sin(angle)) + radius) + 10;
+                let y = ((radius / 2) * i) + radius * (1 + i) + 10;
+                let hex = drawHexagon(x, y);
+                tiles.push(hex);
+            }
+            tilesToDraw = (i + 1) > totalRowNumber / 2 ? tilesToDraw - 1 : tilesToDraw + 1;
+            xPositionFactor = (i + 1) > totalRowNumber / 2 ? xPositionFactor + 1 : xPositionFactor - 1;
+        }
+    }
+
+    function selectMaterial(element, materialType) {
+        const color = window.getComputedStyle(element, null).getPropertyValue('background-color');
+        currentFieldColor = color;
+        currentMaterialType = materialType;
+    }
+
+    function selectCity(element) {
+        currentStructureType = "cities";
+        const color = window.getComputedStyle(element, null).getPropertyValue('color');
+        currentStructureColor = color;
+    }
+
+    function selectBuilding(element) {
+        currentStructureType = "buildings";
+        const color = window.getComputedStyle(element, null).getPropertyValue('color');
+        currentStructureColor = color;
+    }
+
+    function drawHexagon(x, y) {
+        const path = new Path2D();
+        const tile = {};
+
+        ctx.fillStyle = 'grey';
+        const coords = new Array();
+        for (let i = 0; i < 6; i++) {
+            x = parseFloat((x + radius * Math.sin(angle * i)).toFixed(2));
+            y = parseFloat((y + radius * Math.cos(angle * i)).toFixed(2));
+            coords.push({ 'x': x, 'y': y });
+            path.lineTo(x, y);
+        }
+        path.closePath();
+        ctx.fill(path);
+
+
+        tile.center = {};
+        tile.shape = path;
+        tile.color = 'gray';
+        tile.coordinates = coords;
+        tile.cities = new Array();
+        tile.buildings = new Array();
+        tile.center.coordinates = {
+            "x": (coords[0].x + coords[3].x) / 2,
+            "y": (coords[0].y + coords[3].y) / 2
+        };
+
+        return tile;
+    }
+
+    function changeTileInfo(canvas, event) {
+        let rect = canvas.getBoundingClientRect();
+        let x = event.clientX - rect.left;
+        let y = event.clientY - rect.top;
+
+     
+   
+        const modal = document.getElementById("modal");
+        if (event.target != modal) {
+            modal.style.display = "none";
+        }
+
+        if (document.getElementById("numberRadio").checked) {
+            showNumberModal(event.clientX, event.clientY);
+        }
+
+
+        if (document.getElementById("fieldRadio").checked) {
+            drawField(x, y);
+        }
+
+        if (document.getElementById("cityRadio").checked) {
+            let circleFound = vertexRadiusArray.find(circle => ctx.isPointInPath(circle.shape, x, y));
+            let circleCoords = circleFound.coordinates;
+            drawStructure(x, y);
+        }
+    }
+
+    function countCards() {
+        const diceNumber = document.getElementById("diceRoll").value;
+
+        const playerCards = new Map();
+        const tilesFound = tiles.filter(tile => tile.number == diceNumber);
+        tilesFound.forEach(tile => {
+            tile.cities.forEach(city => {
+                const cardsMap = playerCards.get(city.color);
+                if (cardsMap) {
+                    const cardQuantity = cardsMap.get(tile.material);
+                    if (cardQuantity) {
+                        cardsMap.set(tile.material, cardQuantity + 1);
+                    } else {
+                        cardsMap.set(tile.material, 1);
+                    }
+                } else {
+                    const cardsQuantity = new Map();
+                    cardsQuantity.set(tile.material, 1);
+                    playerCards.set(city.color, cardsQuantity);
+                }
+            });
+
+            tile.buildings.forEach(building => {
+                const cardsMap = playerCards.get(building.color);
+                if (cardsMap) {
+                    const cardQuantity = cardsMap.get(tile.material);
+                    if (cardQuantity) {
+                        cardsMap.set(tile.material, cardQuantity + 2);
+                    } else {
+                        cardsMap.set(tile.material, 2);
+                    }
+                } else {
+                    const cardsQuantity = new Map();
+                    cardsQuantity.set(tile.material, 2);
+                    playerCards.set(building.color, cardsQuantity);
+                }
+            });
+        });
+
+        const result = document.getElementById("result");
+        result.innerHTML = "";
+
+        playerCards.forEach((cardCountMap, player) => {
+            result.innerHTML += "<div>";
+            result.innerHTML += "<div class=\"rectangle\" style=\"background: " + player + "\"></div>";
+            cardCountMap.forEach((quantity, material) => {
+                result.innerHTML += "<div>" + material + ": " + quantity + "</div>"
+            });
+            result.innerHTML += "</div>";
+        });
+    }
+
+    function drawStructure(x, y) {
+        const structureType = currentStructureType;
+        let circleFound = vertexRadiusArray.find(circle => ctx.isPointInPath(circle.shape, x, y));
+        if (circleFound) {
+            let isSameStructure = undefined;
+            tiles.forEach(tile => {
+                let structureIndex = tile.cities.findIndex(structure => structure.coordinates.x == circleFound.coordinates.x
+                    && structure.coordinates.y == circleFound.coordinates.y);
+                if (structureIndex >= 0) {
+                    if (tile.cities[structureIndex].color == currentStructureColor) {
+                        isSameStructure = true;
+                    }
+                    tile.cities.splice(structureIndex, 1);
+                    return;
+                }
+                structureIndex = tile.buildings.findIndex(structure => structure.coordinates.x == circleFound.coordinates.x
+                    && structure.coordinates.y == circleFound.coordinates.y);
+                if (structureIndex >= 0) {
+                    if (tile.buildings[structureIndex].color == currentStructureColor) {
+                        isSameStructure = true;
+                    }
+                    tile.buildings.splice(structureIndex, 1);
+                    return;
+                }
+
+            });
+
+            if (isSameStructure) {
+                redraw();
+                return;
+            }
+
+            let circleCoords = circleFound.coordinates;
+            const structure = {};
+            structure.coordinates = circleCoords;
+            structure.color = currentStructureColor;
+
+
+            tilesToUpdate = tiles.filter(tile => {
+                const tileFound = tile.coordinates.find(coord => isPointInsideCircle(coord, structure.coordinates));
+                if (tileFound) {
+                    return true;
+                }
+                return false
+            });
+            if (tilesToUpdate) {
+                tilesToUpdate.forEach(tile => tile[structureType].push(structure));
+            }
+
+            redraw();
+        }
+    }
+
+    function drawField(x, y) {
+        const tile = tiles.find(tile => ctx.isPointInPath(tile.shape, x, y));
+        if (tile) {
+            tile.color = currentFieldColor;
+            tile.material = currentMaterialType;
+            ctx.fillStyle = currentFieldColor;
+            ctx.fill(tile.shape);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        redraw();
+    }
+
+    function isPointInsideCircle(coord, circleCoords) {
+        if (Math.abs(coord.x - circleCoords.x) < 0.1 && Math.abs(coord.y - circleCoords.y) < 0.1) {
+            return true;
+        }
+        return false;
+    }
+
+    function redraw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        tiles.forEach(tile => {
+            ctx.fillStyle = tile.color;
+            ctx.fill(tile.shape);
+            if (tile.number) {
+                ctx.font = 'bold 40px Calibri'
+                ctx.fillStyle = 'black';
+                ctx.fillText(tile.number, tile.center.coordinates.x - 13, tile.center.coordinates.y + 10);
+            }
+        });
+
+        tiles.flatMap(tile => tile.cities).forEach(city => {
+            ctx.font = '20px FontAwesome';
+            ctx.fillStyle = city.color;
+            const cityCoords = city.coordinates;
+            ctx.fillText('\ue3af', cityCoords.x - 11, cityCoords.y + 5);
+        });
+
+        tiles.flatMap(tile => tile.buildings).forEach(building => {
+            ctx.font = '20px FontAwesome';
+            ctx.fillStyle = building.color;
+            const buildingCoords = building.coordinates;
+            ctx.fillText('\uf1ad', buildingCoords.x - 11, buildingCoords.y + 5);
+        });
+    }
+</script>
+
+</html>
